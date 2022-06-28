@@ -77,6 +77,10 @@
 #include "utils/CameraThreadState.h"
 #include "utils/CameraServiceProxyWrapper.h"
 
+#ifdef CAMERA_NEEDS_CLIENT_INFO_LIB
+#include <vendor/oneplus/hardware/camera/1.0/IOnePlusCameraProvider.h>
+#endif
+
 namespace {
     const char* kPermissionServiceName = "permission";
 }; // namespace anonymous
@@ -135,6 +139,10 @@ static const String16
 const char *sFileName = "lastOpenSessionDumpFile";
 static constexpr int32_t kVendorClientScore = resource_policy::PERCEPTIBLE_APP_ADJ;
 static constexpr int32_t kVendorClientState = ActivityManager::PROCESS_STATE_PERSISTENT_UI;
+
+#ifdef CAMERA_NEEDS_CLIENT_INFO_LIB
+static const sp<IOnePlusCameraProvider> gVendorCameraProviderService = IOnePlusCameraProvider::getService();
+#endif
 
 const String8 CameraService::kOfflineDevice("offline-");
 
@@ -556,6 +564,13 @@ void CameraService::onTorchStatusChanged(const String8& cameraId,
                 cameraId.string());
         return;
     }
+    Mutex::Autolock al(mTorchStatusMutex);
+    onTorchStatusChangedLocked(cameraId, newStatus, systemCameraKind);
+}
+
+
+void CameraService::onTorchStatusChanged(const String8& cameraId,
+        TorchModeStatus newStatus, SystemCameraKind systemCameraKind) {
     Mutex::Autolock al(mTorchStatusMutex);
     onTorchStatusChangedLocked(cameraId, newStatus, systemCameraKind);
 }
@@ -3194,6 +3209,9 @@ status_t CameraService::BasicClient::startCameraOps() {
     // Notify listeners of camera open/close status
     sCameraService->updateOpenCloseStatus(mCameraIdStr, true/*open*/, mClientPackageName);
 
+#ifdef CAMERA_NEEDS_CLIENT_INFO_LIB
+    gVendorCameraProviderService->setPackageName(String8(mClientPackageName).string());
+#endif
     return OK;
 }
 
